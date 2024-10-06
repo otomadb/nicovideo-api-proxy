@@ -99,7 +99,6 @@ app.get(
 						id,
 						title: title,
 						ownerId: ownerId,
-						tag,
 						view,
 						comment,
 						like,
