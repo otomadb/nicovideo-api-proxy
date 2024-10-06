@@ -14,6 +14,8 @@ export function buildUrl(sourceId: string) {
 		"actionTrackId",
 		`${Math.random().toString(36).substring(2)}_${Date.now()}`,
 	);
+	console.log(url.toString());
+
 	return url.toString();
 }
 
@@ -65,9 +67,9 @@ app.get(
 								duration: v.number(),
 								thumbnail: v.object({
 									url: v.string(),
-									middleUrl: v.string(),
-									largeUrl: v.string(),
-									player: v.string(),
+									middleUrl: v.nullable(v.string()),
+									largeUrl: v.nullable(v.string()),
+									player: v.nullable(v.string()),
 									ogp: v.string(),
 								}),
 								registeredAt: v.string(),
