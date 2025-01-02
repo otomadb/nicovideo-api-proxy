@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import * as v from "valibot";
 import { validator } from "hono/validator";
+import ky from "ky";
 
 export function buildUrl(sourceId: string) {
 	const url = new URL(
@@ -15,7 +16,6 @@ export function buildUrl(sourceId: string) {
 		`${Math.random().toString(36).substring(2)}_${Date.now()}`,
 	);
 	console.log(url.toString());
-
 	return url.toString();
 }
 
@@ -29,11 +29,13 @@ app.get(
 	}),
 	async (c) => {
 		const { id } = c.req.param();
-		return fetch(buildUrl(id), {
-			headers: {
-				"user-agent": "Mozilla/5.0", // TODO: fix
-			},
-		})
+		return ky
+			.get(buildUrl(id), {
+				retry: 3,
+				headers: {
+					"user-agent": "Mozilla/5.0", // TODO: fix
+				},
+			})
 			.then((r) => r.json())
 			.then((r) =>
 				v.parse(
