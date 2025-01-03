@@ -15,7 +15,6 @@ export function buildUrl(sourceId: string) {
 		"actionTrackId",
 		`${Math.random().toString(36).substring(2)}_${Date.now()}`,
 	);
-	console.log(url.toString());
 	return url.toString();
 }
 
@@ -29,93 +28,120 @@ app.get(
 	}),
 	async (c) => {
 		const { id } = c.req.param();
-		return ky
-			.get(buildUrl(id), {
-				retry: 3,
-				headers: {
-					"user-agent": "Mozilla/5.0", // TODO: fix
-				},
-			})
-			.then((r) => r.json())
-			.then((r) =>
-				v.parse(
-					v.object({
-						meta: v.object({
-							status: v.number(),
-						}),
-						data: v.object({
-							owner: v.object({
-								id: v.number(),
-								nickname: v.string(),
-								iconUrl: v.string(),
-							}),
-							tag: v.object({
-								items: v.array(
-									v.object({
-										name: v.string(),
-									}),
-								),
-							}),
-							video: v.object({
-								id: v.string(),
-								title: v.string(),
-								description: v.string(),
-								count: v.object({
-									view: v.number(),
-									comment: v.number(),
-									mylist: v.number(),
-									like: v.number(),
-								}),
-								duration: v.number(),
-								thumbnail: v.object({
-									url: v.string(),
-									middleUrl: v.nullable(v.string()),
-									largeUrl: v.nullable(v.string()),
-									player: v.nullable(v.string()),
-									ogp: v.string(),
-								}),
-								registeredAt: v.string(),
-							}),
-						}),
-					}),
-					r,
-				),
-			)
-			.then(
-				({
+		const result = await ky.get(buildUrl(id), {
+			retry: 3,
+			throwHttpErrors: false,
+			headers: {
+				"user-agent": "Mozilla/5.0", // TODO: fix
+			},
+		});
+		if (!result.ok) {
+			return c.json(
+				{
+					reason: "FETCH_FAILED",
+					url: result.url,
 					data: {
-						owner: { id: ownerId, nickname: ownerName, iconUrl: ownerIconUrl },
-						tag,
-						video: {
-							id,
-							title,
-							count: { view, comment, like, mylist },
-							description,
-							duration,
-							registeredAt,
-							thumbnail: { ogp: thumbnailUrl },
-						},
+						status: result.status,
+						body: await result.json(),
 					},
-				}) =>
-					c.json({
-						id,
-						title: title,
-						ownerId: ownerId,
-						view,
-						comment,
-						like,
-						mylist,
-						tags: tag.items.map((t) => t.name),
-						description,
-						duration,
-						registeredAt,
-						thumbnailUrl: thumbnailUrl,
+				},
+				400,
+			);
+		}
+
+		const a = v.safeParse(
+			v.object({
+				meta: v.object({
+					status: v.number(),
+				}),
+				data: v.object({
+					owner: v.union([
+						v.null(),
+						v.object({
+							id: v.number(),
+							nickname: v.string(),
+							iconUrl: v.string(),
+						}),
+					]),
+					tag: v.object({
+						items: v.array(
+							v.object({
+								name: v.string(),
+							}),
+						),
 					}),
-			)
-			.catch((e) => {
-				console.log(e);
-				return c.text("Bad request", 400);
-			});
+					video: v.object({
+						id: v.string(),
+						title: v.string(),
+						description: v.string(),
+						count: v.object({
+							view: v.number(),
+							comment: v.number(),
+							mylist: v.number(),
+							like: v.number(),
+						}),
+						duration: v.number(),
+						thumbnail: v.object({
+							url: v.string(),
+							middleUrl: v.nullable(v.string()),
+							largeUrl: v.nullable(v.string()),
+							player: v.nullable(v.string()),
+							ogp: v.string(),
+						}),
+						registeredAt: v.string(),
+					}),
+				}),
+			}),
+			await result.json(),
+		);
+
+		if (!a.success) {
+			console.log(result.url);
+			console.log(a.issues);
+
+			return c.json(
+				{
+					reason: "INVALID_RESPONSE",
+					url: result.url,
+					data: {
+						issues: a.issues,
+					},
+				},
+				400,
+			);
+		}
+
+		const {
+			data: {
+				owner,
+				// owner: { id: ownerId, nickname: ownerName, iconUrl: ownerIconUrl },
+				tag,
+				video: {
+					id: vid,
+					title,
+					count: { view, comment, like, mylist },
+					description,
+					duration,
+					registeredAt,
+					thumbnail: { ogp: thumbnailUrl },
+				},
+			},
+		} = a.output;
+
+		return c.json({
+			id: vid,
+			title: title,
+			ownerId: owner?.id,
+			view,
+			comment,
+			like,
+			mylist,
+			tags: tag.items.map((t) => t.name),
+			description,
+			duration,
+			registeredAt,
+			thumbnailUrl: thumbnailUrl,
+		});
 	},
 );
 
