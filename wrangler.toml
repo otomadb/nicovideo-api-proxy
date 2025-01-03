@@ -1,4 +1,4 @@
-name = "nicovideo-api-abstraction"
+name = "nicovideo-api-proxy"
 main = "src/index.ts"
 compatibility_date = "2024-10-06"
 compatibility_flags = [ "nodejs_compat" ]
